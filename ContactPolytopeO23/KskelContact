@@ -1,0 +1,59 @@
+GramMat:=ReadAsFunction("GramMat")();
+n:=Length(GramMat);
+
+FileData:="FundamentalData";
+if IsExistingFile(FileData)=false then
+  SHV:=ShortestVectorDutourVersion(GramMat);
+  GRP:=MatrixAutomorphismGroupGramMatrix(GramMat);
+  ewr:=rec(SHV:=SHV, GRP:=GRP);
+  SaveDataToFile(FileData, ewr);
+else
+  ewr:=ReadAsFunction(FileData)();
+  SHV:=ewr.SHV;
+  GRP:=ewr.GRP;
+fi;
+
+ListPermGen:=[];
+for eMat in GRP.ListMat
+do
+  eList:=[];
+  for eVect in SHV
+  do
+    Add(eList, Position(SHV, eVect*eMat));
+  od;
+  Add(ListPermGen, PermList(eList));
+od;
+PermGRP:=Group(ListPermGen);
+ListBigMat:=[];
+for eMat in GRP.ListMat
+do
+  eBigMat:=FuncCreateBigMatrix(ListWithIdenticalEntries(23,0), eMat);
+  Add(ListBigMat, eBigMat);
+od;
+MatGroupBig:=Group(ListBigMat);
+#
+#
+FAC:=[];
+for eVect in SHV
+do
+  eLine:=[];
+  eImg:=eVect*GramMat;
+  eLine[1]:=3;
+  for i in [1..n]
+  do
+    eLine[i+1]:=-eImg[i];
+  od;
+  Add(FAC, eLine);
+od;
+#
+#
+ListOrb:=ReadAsFunction("ListOrbitEXT")();
+TheSol:=NullspaceMat(TransposedMat(FAC{ListOrb[25]}));
+eVert:=TheSol[1]/TheSol[1][1];
+
+BoundingSet:=Orbit(MatGroupBig, eVert, OnPoints);
+#BoundingSet:=[];
+#
+#
+LevSearch:=5;
+TheIncomp:=IncompleteSkeletonSearch(PermGRP, FAC, BoundingSet, LevSearch);

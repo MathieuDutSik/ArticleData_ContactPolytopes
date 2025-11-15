@@ -1,0 +1,98 @@
+TheGramMat:=ReadAsFunction("GramMat")();;
+
+GRP:=ReadAsFunction("LeechGroup")();
+SHV:=ReadAsFunction("LeechNeigh")();
+ListPermGen:=GetListPermGens(SHV, GeneratorsOfGroup(GRP));
+PermGRP:=Group(ListPermGen);
+SetSize(PermGRP, Order(GRP));
+
+
+SVR:=ShortestVectorDutourVersion(TheGramMat);
+
+EXTdelaunay36:=ReadAsFunction("Delaunay36")();;
+
+Is_A2pow12_Orbit:=function(EXTdelaunay)
+  local nbV, EXTdelaunayRed, GRA, DistMat, i, j, eDiff, eDist, ListConn, eConn, eVert;
+  nbV:=Length(EXTdelaunay);
+  if nbV<>36 then
+    return false;
+  fi;
+  EXTdelaunayRed:=List(EXTdelaunay, x->x{[2..25]});
+  GRA:=NullGraph(Group(()), nbV);
+  DistMat:=NullMat(nbV, nbV);
+  for i in [1..nbV-1]
+  do
+    for j in [i+1..nbV]
+    do
+      eDiff:=EXTdelaunayRed[i]-EXTdelaunayRed[j];
+      eDist:=eDiff*TheGramMat*eDiff;
+      DistMat[i][j]:=eDist;
+      DistMat[j][i]:=eDist;
+      if eDist=6 then
+        AddEdgeOrbit(GRA, [i,j]);
+        AddEdgeOrbit(GRA, [j,i]);
+      fi;
+    od;
+  od;
+  ListConn:=ConnectedComponents(GRA);
+  for eConn in ListConn
+  do
+    if Length(eConn)<>3 then
+      return false;
+    fi;
+    for eVert in eConn
+    do
+      if Length(Adjacency(GRA, eVert))<>2 then
+        return false;
+      fi;
+    od;
+  od;
+  return true;
+end;
+GetStabilizer_A2pow12:=function(EXTdelaunay)
+  local EXTdelaunayRed, eIsoRed, ListDiffRed, ListSet, eVect, eProd, ListColl, pos, eSet, TheStab, ListStabGen, GRPret, FuncInsertGenerator, eGen, eList, nbOrbit, i;
+  if Is_A2pow12_Orbit(EXTdelaunay)=false then
+    Print("You are in wrong function, please turn back\n");
+    Print(NullMat(5));
+  fi;
+  EXTdelaunayRed:=List(EXTdelaunay, x->x{[2..25]});
+  eIsoRed:=Isobarycenter(EXTdelaunayRed);
+  ListDiffRed:=List(EXTdelaunayRed, x->x-eIsoRed);
+  ListSet:=[];
+  for eVect in ListDiffRed
+  do
+    eProd:=eVect*TheGramMat;
+    ListColl:=GetCollectedList(SHV, x->x*eProd);
+    pos:=Position(ListColl.ListKeys, 2);
+    eSet:=ListColl.ListOcc[pos];
+    Add(ListSet, eSet);
+  od;
+  TheStab:=Stabilizer(PermGRP, ListSet[1], OnSets);
+  ListStabGen:=[];
+  GRPret:=Group(());
+  FuncInsertGenerator:=function(eGen)
+    if not(eGen in GRPret) then
+      Add(ListStabGen, eGen);
+      GRPret:=Group(ListStabGen);
+    fi;
+  end;
+  for eGen in GeneratorsOfGroup(TheStab)
+  do
+    eList:=List(ListSet, x->Position(ListSet, OnSets(x, eGen)));
+    FuncInsertGenerator(PermList(eList));
+  od;
+  for i in [2..36]
+  do
+    eGen:=RepresentativeAction(PermGRP, ListSet[1], ListSet[i], OnSets);
+    eList:=List(ListSet, x->Position(ListSet, OnSets(x, eGen)));
+    FuncInsertGenerator(PermList(eList));
+    nbOrbit:=Length(Orbits(GRPret, [1..36], OnPoints));
+    if nbOrbit=1 then
+      return GRPret;
+    fi;
+  od;
+  Print("We failed in our analysis\n");
+  Print(NullMat(5));
+end;
+
+TheStab:=GetStabilizer_A2pow12(EXTdelaunay36);

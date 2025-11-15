@@ -1,0 +1,179 @@
+GramMat:=ReadAsFunction("GramMat")();
+n:=Length(GramMat);
+
+FileData:="FundamentalData";
+if IsExistingFile(FileData)=false then
+  SHV:=ShortestVectorDutourVersion(GramMat);
+  GRP:=MatrixAutomorphismGroupGramMatrix(GramMat);
+  ewr:=rec(SHV:=SHV, GRP:=GRP);
+  SaveDataToFile(FileData, ewr);
+else
+  ewr:=ReadAsFunction(FileData)();
+  SHV:=ewr.SHV;
+  GRP:=ewr.GRP;
+fi;
+
+FAC:=[];
+for eVect in SHV
+do
+  eLine:=[];
+  eImg:=eVect*GramMat;
+  for i in [1..n]
+  do
+    eLine[i]:=-eImg[i];
+  od;
+  eLine[n+1]:=1;
+  Add(FAC, eLine);
+od;
+FuncDistMat:=function(FACask)
+  local ListInc, DistMat, nbVert, i, j, Scal;
+  ListInc:=List(FACask, x->Position(FAC, x));
+  nbVert:=Length(ListInc);
+  DistMat:=NullMat(nbVert, nbVert);
+  for i in [1..nbVert]
+  do
+    for j in [i..nbVert]
+    do
+      Scal:=SHV[ListInc[i]]*GramMat*SHV[ListInc[j]];
+      if i<>j then
+        DistMat[i][j]:=Scal;
+        DistMat[j][i]:=Scal;
+      else
+        DistMat[i][j]:=Scal;
+      fi;
+    od;
+  od;
+  return DistMat;
+end;
+FuncStabilizer:=function(FACask)
+  return AutomorphismGroupEdgeColoredGraph(FuncDistMat(FACask));
+end;
+FuncIsomorphy:=function(FAC1, FAC2)
+  local DistMat1, DistMat2, test;
+  DistMat1:=FuncDistMat(FAC1);
+  DistMat1:=FuncDistMat(FAC2);
+  test:=IsIsomorphicEdgeColoredGraph(DistMat1, DistMat2);
+  if test=false then
+    return false;
+  else
+    return PermList(test);
+  fi;
+end;
+
+
+
+ListPermGen:=[];
+for eMat in GRP.ListMat
+do
+  eList:=[];
+  for eVect in SHV
+  do
+    Add(eList, Position(SHV, eVect*eMat));
+  od;
+  Add(ListPermGen, PermList(eList));
+od;
+PermGRP:=Group(ListPermGen);
+#
+CentralQuoGens:=[];
+nbPair:=Length(SHV)/2;
+ListPair:=List([1..nbPair], x->Set([SHV[2*x-1], SHV[2*x]]));
+for eMat in GRP.ListMat
+do
+  eList:=[];
+  for i in [1..Length(ListPair)]
+  do
+    ePair:=ListPair[i];
+    fPair:=Set([ePair[1]*eMat, ePair[2]*eMat]);
+    Add(eList, Position(ListPair, fPair));
+  od;
+  Add(CentralQuoGens, PermList(eList));
+od;
+CentralSymQuotient:=Group(CentralQuoGens);
+#
+Stab:=Stabilizer(PermGRP, 1, OnPoints);
+LORB:=Orbits(Stab, [2..4600], OnPoints);
+Lcase:=Filtered(LORB, x->Length(x)=891);
+Linv1:=[Set(Lcase[1])];
+Linv2:=[Set(Lcase[2])];
+for i in [2..4600]
+do
+  g:=RepresentativeAction(PermGRP, 1, i, OnPoints);
+  Linv1[i]:=OnSets(Linv1[1], g);
+  Linv2[i]:=OnSets(Linv2[1], g);
+od;
+
+
+MyFuncInvariant:=function(eSet)
+  local nb1, nb2, i;
+  nb1:=0;
+  nb2:=0;
+  for i in eSet
+  do
+    nb1:=nb1+Length(Intersection(eSet, Linv1[i]));
+    nb2:=nb2+Length(Intersection(eSet, Linv1[i]));
+  od;
+  return [Length(eSet), nb1, nb2];
+end;
+
+
+ListOrb:=ReadAsFunction("ListOrbitEXT")();
+
+ListStab:=[];
+ListInnerStab:=[];
+ListInc:=[];
+
+
+GetDescriptionFromIncd:=function(eInc)
+  local Bside, ListEq, eVect, Hsol, NSP, FAC, V, ListScal;
+  Bside:=[];
+  ListEq:=[];
+  for eVect in SHV{eInc}
+  do
+    Add(Bside, 1);
+    Add(ListEq, eVect*GramMat);
+  od;
+  Hsol:=SolutionMat(TransposedMat(ListEq), Bside);
+  NSP:=NullspaceMat(TransposedMat([Hsol*GramMat]));
+  FAC:=[];
+  for eVect in SHV{eInc}
+  do
+    V:=[1];
+    ListScal:=List(NSP, x->eVect*GramMat*x);
+    Append(V, -ListScal);
+    Add(FAC, V);
+  od;
+  return FAC;
+end;
+
+#----------------------HS 
+i:=66;
+TheInc:=ListOrb[i];
+Add(ListInc, TheInc);
+Stab:=Stabilizer(PermGRP, TheInc, OnSets);
+InnerStab:=FuncStabilizer(FAC{TheInc});
+Add(ListStab, Stab);
+Add(ListInnerStab, InnerStab);
+
+LN:=NormalSubgroups(InnerStab);
+HSgroup:=LN[2];
+
+TheHSpolytope:=rec(EXT:=GetDescriptionFromIncd(TheInc), 
+   GroupEXT:=HSgroup);
+FileName:="DataHSpolytope";
+SaveDataToFile(FileName, TheHSpolytope);
+#----------------------McL
+i:=25;
+TheInc:=ListOrb[i];
+Add(ListInc, TheInc);
+Stab:=Stabilizer(PermGRP, TheInc, OnSets);
+InnerStab:=FuncStabilizer(FAC{TheInc});
+Add(ListStab, Stab);
+Add(ListInnerStab, InnerStab);
+
+LN:=NormalSubgroups(InnerStab);
+McLgroup:=LN[2];
+
+TheMCLpolytope:=rec(EXT:=GetDescriptionFromIncd(TheInc), 
+    GroupEXT:=McLgroup);
+FileName:="DataMCLpolytope";
+SaveDataToFile(FileName, TheMCLpolytope);

@@ -1,0 +1,341 @@
+GramMat:=[[3,1,-1,0,-1,0,0,1,0,0,0,-1,1,0,0,0,1,1,-1,1,0,0,-1],
+[1,3,-1,0,-1,0,1,0,0,0,-1,-1,1,0,0,1,0,1,-1,1,1,1,1],
+[-1,-1,3,1,1,1,0,-1,0,-1,1,0,-1,0,0,1,0,-1,1,-1,-1,0,1],
+[0,0,1,3,1,0,1,-1,-1,-1,0,-1,-1,0,-1,1,0,0,0,-1,0,1,1],
+[-1,-1,1,1,3,0,0,-1,-1,-1,0,0,-1,0,0,0,0,-1,0,-1,-1,1,1],
+[0,0,1,0,0,3,0,1,0,0,1,0,-1,1,1,0,-1,0,-1,0,0,-1,1],
+[0,1,0,1,0,0,3,0,0,-1,-1,0,0,1,0,1,0,1,0,-1,1,0,1],
+[1,0,-1,-1,-1,1,0,3,0,1,0,1,0,0,0,0,-1,0,-1,1,1,-1,-1],
+[0,0,0,-1,-1,0,0,0,3,0,0,1,1,0,1,0,0,1,1,0,1,-1,0],
+[0,0,-1,-1,-1,0,-1,1,0,3,-1,0,0,0,-1,-1,0,0,-1,1,1,0,-1],
+[0,-1,1,0,0,1,-1,0,0,-1,3,0,0,0,1,0,0,-1,1,-1,-1,-1,0],
+[-1,-1,0,-1,0,0,0,1,1,0,0,3,-1,-1,1,0,-1,0,1,0,0,-1,0],
+[1,1,-1,-1,-1,-1,0,0,1,0,0,-1,3,0,0,0,1,0,0,0,1,0,-1],
+[0,0,0,0,0,1,1,0,0,0,0,-1,0,3,0,-1,1,1,-1,-1,0,-1,0],
+[0,0,0,-1,0,1,0,0,1,-1,1,1,0,0,3,-1,0,1,0,0,-1,-1,1],
+[0,1,1,1,0,0,1,0,0,-1,0,0,0,-1,-1,3,-1,-1,1,0,1,1,1],
+[1,0,0,0,0,-1,0,-1,0,0,0,-1,1,1,0,-1,3,1,0,-1,-1,0,-1],
+[1,1,-1,0,-1,0,1,0,1,0,-1,0,0,1,1,-1,1,3,-1,0,0,-1,0],
+[-1,-1,1,0,0,-1,0,-1,1,-1,1,1,0,-1,0,1,0,-1,3,-1,0,0,0],
+[1,1,-1,-1,-1,0,-1,1,0,1,-1,0,0,-1,0,0,-1,0,-1,3,0,1,0],
+[0,1,-1,0,-1,0,1,1,1,1,-1,0,1,0,-1,1,-1,0,0,0,3,0,0],
+[0,1,0,1,1,-1,0,-1,-1,0,-1,-1,0,-1,-1,1,0,-1,0,1,0,3,1],
+[-1,1,1,1,1,1,1,-1,0,-1,0,0,-1,0,1,1,-1,0,0,0,0,1,3]];
+
+
+ReadVectorFile("GramMat");
+n:=Length(GramMat);
+
+FileData:="FundamentalData";
+if IsExistingFile(FileData)=false then
+  SHV:=ShortestVectorDutourVersion(GramMat);
+  GRP:=MatrixAutomorphismGroupGramMatrix(GramMat);
+  ewr:=rec(SHV:=SHV, GRP:=GRP);
+  SaveDataToFile(FileData, ewr);
+else
+  ewr:=ReadAsFunction(FileData)();
+  SHV:=ewr.SHV;
+  GRP:=ewr.GRP;
+fi;
+
+ListPermGen:=[];
+for eMat in GRP.ListMat
+do
+  eList:=[];
+  for eVect in SHV
+  do
+    Add(eList, Position(SHV, eVect*eMat));
+  od;
+  Add(ListPermGen, PermList(eList));
+od;
+PermGRP:=Group(ListPermGen);
+Stab:=Stabilizer(PermGRP, 1, OnPoints);
+LORB:=Orbits(Stab, [2..4600], OnPoints);
+Lcase:=Filtered(LORB, x->Length(x)=891);
+Linv1:=[Set(Lcase[1])];
+Linv2:=[Set(Lcase[2])];
+for i in [2..4600]
+do
+  g:=RepresentativeAction(PermGRP, 1, i, OnPoints);
+  Linv1[i]:=OnSets(Linv1[1], g);
+  Linv2[i]:=OnSets(Linv2[1], g);
+od;
+
+
+MyFuncInvariant:=function(eSet)
+  local nb1, nb2, i;
+  nb1:=0;
+  nb2:=0;
+  for i in eSet
+  do
+    nb1:=nb1+Length(Intersection(eSet, Linv1[i]));
+    nb2:=nb2+Length(Intersection(eSet, Linv1[i]));
+  od;
+  return [Length(eSet), nb1, nb2];
+end;
+
+
+
+
+
+
+
+FAC:=[];
+for eVect in SHV
+do
+  eLine:=[];
+  eImg:=eVect*GramMat;
+  for i in [1..n]
+  do
+    eLine[i]:=-eImg[i];
+  od;
+  eLine[n+1]:=1;
+  Add(FAC, eLine);
+od;
+FuncDistMat:=function(FACask)
+  local ListInc, DistMat, nbVert, i, j, Scal;
+  ListInc:=List(FACask, x->Position(FAC, x));
+  nbVert:=Length(ListInc);
+  DistMat:=NullMat(nbVert, nbVert);
+  for i in [1..nbVert]
+  do
+    for j in [i..nbVert]
+    do
+      Scal:=SHV[ListInc[i]]*GramMat*SHV[ListInc[j]];
+      if i<>j then
+        DistMat[i][j]:=Scal;
+        DistMat[j][i]:=Scal;
+      else
+        DistMat[i][j]:=Scal;
+      fi;
+    od;
+  od;
+  return DistMat;
+end;
+FuncStabilizer:=function(FACask)
+  if Length(FACask)=4600 then
+    return PermGRP;
+  fi;
+  return AutomorphismGroupEdgeColoredGraph(FuncDistMat(FACask));
+end;
+FuncIsomorphy:=function(FAC1, FAC2)
+  local DistMat1, DistMat2, test;
+  DistMat1:=FuncDistMat(FAC1);
+  DistMat2:=FuncDistMat(FAC2);
+  test:=IsIsomorphicEdgeColoredGraph(DistMat1, DistMat2);
+  if test=false then
+    return false;
+  else
+    return PermList(test);
+  fi;
+end;
+FuncInvariant:=function(EXT)
+  return [Length(EXT), RankMat(EXT)];
+end;
+
+
+
+
+IsRespawn:=function(OrdGRP, EXT, TheDepth)
+  local nbInc;
+  nbInc:=Length(EXT);
+  if TheDepth=3 and nbInc=56 and OrdGRP=40320 then
+    return true;
+  fi;
+  if TheDepth<=2 and nbInc>56 and OrdGRP>20000 then
+    return true;
+  fi;
+  if TheDepth<=2 and nbInc>=42 and OrdGRP>80000 then
+    return true;
+  fi;
+  if TheDepth>=2 then
+    return false;
+  fi;
+  Print("We are in IsRespawn\n");
+  if OrdGRP<=60000 then
+    return false;
+  fi;
+  if nbInc<=42 then
+    return false;
+  fi;
+  return true;
+end;
+
+
+IsBankSave:=function(EllapsedTime, OrdGRP, EXT, TheDepth)
+  if TheDepth=0 then
+    return false;
+  fi;
+  if EllapsedTime>=600 then
+    return true;
+  fi;
+  if Length(EXT)<=27 then
+    return false;
+  fi;
+  return true;
+end;
+ThePathWork:="./TheWork/";
+Exec("mkdir -p ", ThePathWork);
+ThePath:=Concatenation(ThePathWork, "tmp/");
+Exec("mkdir -p ", ThePath);
+PathSave:=Concatenation(ThePathWork, "PathSAVE/");
+Exec("mkdir -p ", PathSave);
+
+
+
+
+#
+# For isomorphy tests in the ADM, we can choose a different
+# group formalism. This can help speed up performance.
+# see below the standard PermutationGroup + OnSets formalism
+OnSetsGroupFormalism:=function()
+  local __LiftingOrbits, OnSetsRepresentativeAction, OnSetsStabilizer, GroupUnion, ToPermGroup, TheOrder, OnSetsIsSubgroup, OnSetsGroupConjugacy, OnSetsTransformIncidenceList, MyOrbitGroupFormalism, BankKeyInformation, BankCompleteInformation, BankGetVertexSet, BankGetGroup, BankGetListObject;
+
+  __LiftingOrbits:=function(EXT, ListInc, SmallGroup, BigGroup)
+    local NewListInc, eInc;
+    NewListInc:=[];
+    for eInc in ListInc
+    do
+      Append(NewListInc, __IndividualLifting(eInc, SmallGroup, BigGroup));
+    od;
+    return NewListInc;
+  end;
+  OnSetsStabilizer:=function(EXT, GRP, eInc)
+    return SecondReduceGroupAction(Stabilizer(GRP, eInc, OnSets), eInc);
+  end;
+  GroupUnion:=function(Grp1, Grp2)
+    return Group(SmallGeneratingSet(Group(Union(GeneratorsOfGroup(Grp1), GeneratorsOfGroup(Grp2)))));
+  end;
+  ToPermGroup:=function(EXT, Grp)
+    return Grp;
+  end;
+  TheOrder:=function(GRP)
+    return Order(GRP);
+  end;
+  OnSetsIsSubgroup:=function(GRP1, GRP2)
+    return IsSubgroup(GRP1, GRP2);
+  end;
+  OnSetsGroupConjugacy:=function(GRP, eElt)
+    local NewGens, eGen;
+    NewGens:=[];
+    for eGen in GeneratorsOfGroup(GRP)
+    do
+      Add(NewGens, eElt^(-1)*eGen*eElt);
+    od;
+    return PersoGroupPerm(NewGens);
+  end;
+  OnSetsTransformIncidenceList:=function(ListEXT1, ListEXT2, TheEquiv, ListListInc)
+    return List(ListListInc, x->OnSets(x, TheEquiv));
+  end;
+  MyOrbitGroupFormalism:=function(EXT, TheGroup, Prefix, SavingTrigger)
+    local FuncInvariant, FuncIsomorphy, FuncInvariantUpdate, OrderLincStabilizer;
+    if Order(TheGroup)=84610842624000 then
+      FuncInvariant:=function(Odisc, Linc)
+        return MyFuncInvariant(Linc);
+      end;
+      FuncIsomorphy:=function(Linc1, Linc2)
+        return RepresentativeAction(TheGroup, Linc1, Linc2, OnSets)<>fail;
+      end;
+      FuncInvariantUpdate:=function(OdiscPrev, nbCall)
+        return [];
+      end;
+      OrderLincStabilizer:=function(Linc)
+        return Order(Stabilizer(TheGroup, Linc, OnSets));
+      end;
+    elif Order(TheGroup)<=1000 then
+      FuncInvariant:=function(Odisc, Linc)
+        return Minimum(Orbit(TheGroup, Linc, OnSets));
+      end;
+      FuncIsomorphy:=function(Linc1, Linc2)
+        return true;
+      end;
+      FuncInvariantUpdate:=function(OdiscPrev, nbCall)
+        return [];
+      end;
+      OrderLincStabilizer:=function(Linc)
+        return Order(Stabilizer(TheGroup, Linc, OnSets));
+      end;
+    else
+      FuncInvariant:=function(Odisc, Linc)
+        return __FuncInvariant(Odisc, Linc);
+      end;
+      FuncIsomorphy:=function(Linc1, Linc2)
+        return RepresentativeAction(TheGroup, Linc1, Linc2, OnSets)<>fail;
+      end;
+      FuncInvariantUpdate:=function(OdiscPrev, NbCall)
+        if NbCall=1001 then
+          return GetDiscriminatingSet(TheGroup, NbCall);
+        else
+          return OdiscPrev;
+        fi;
+      end;
+      OrderLincStabilizer:=function(Linc)
+        return Order(Stabilizer(TheGroup, Linc, OnSets));
+      end;
+    fi;
+    return OrbitGroupFormalism(Prefix, SavingTrigger,
+        rec(FuncInvariant:=FuncInvariant,
+            FuncIsomorphy:=FuncIsomorphy, 
+            GroupOrder:=Order(TheGroup),
+            OrderLincStabilizer:=OrderLincStabilizer, 
+            FuncInvariantUpdate:=FuncInvariantUpdate));
+  end;
+  BankKeyInformation:=function(EXT, GroupExt)
+    return rec(EXT:=EXT, Group:=GroupExt);
+  end;
+  BankCompleteInformation:=function(EXT, GroupExt, ListObject)
+    return ListObject;
+  end;
+  BankGetVertexSet:=function(TheKey, TheComplete)
+    return TheKey.EXT;
+  end;
+  BankGetGroup:=function(TheKey, TheComplete)
+    return TheKey.Group;
+  end;
+  BankGetListObject:=function(TheComplete)
+    return TheComplete;
+  end;
+
+
+  return rec(
+    Stabilizer:=OnSetsStabilizer,
+    LiftingOrbits:=__LiftingOrbits,
+    GroupUnion:=GroupUnion,
+    ToPermGroup:=ToPermGroup,
+    Order:=TheOrder,
+    IsSubgroup:=OnSetsIsSubgroup,
+    GroupConjugacy:=OnSetsGroupConjugacy,
+    TransformIncidenceList:=OnSetsTransformIncidenceList, 
+    OrbitGroupFormalism:=MyOrbitGroupFormalism,
+    BankKeyInformation:=BankKeyInformation, 
+    BankCompleteInformation:=BankCompleteInformation,
+    BankGetVertexSet:=BankGetVertexSet, 
+    BankGetGroup:=BankGetGroup, 
+    BankGetListObject:=BankGetListObject);
+end;
+
+
+
+Data:=rec(TheDepth:=0,
+          ThePath:=ThePath,
+          IsBankSave:=IsBankSave,
+          GroupFormalism:=OnSetsGroupFormalism(), 
+          DualDescriptionFunction:=__DualDescriptionLRS_Reduction,
+          IsRespawn:=IsRespawn,
+          Saving:=true,
+          ThePathSave:=PathSave);
+
+
+
+
+
+BankPath:=Concatenation(ThePathWork, "TheBank/");
+Exec("mkdir -p ", BankPath);
+DataBank:=rec(BankPath:=BankPath, Saving:=true);
+BF:=BankRecording(DataBank, FuncStabilizer, FuncIsomorphy, FuncInvariant, OnSetsGroupFormalism());
+
+LORB:=__ListFacetByAdjacencyDecompositionMethod(FAC,
+                                                PermGRP, 
+                                                Data,
+                                                BF);
+SaveDataToFile("ListOrbitEXT", LORB);

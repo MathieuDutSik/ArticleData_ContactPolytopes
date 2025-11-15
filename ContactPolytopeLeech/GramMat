@@ -1,0 +1,20 @@
+local PMat, iLin, iCol, GramMat;
+PMat:=ReadVectorFile("GramMat.txt");
+if Length(PMat[1])=1 then
+  GramMat:=NullMat(Length(PMat), Length(PMat));
+  for iLin in [1..Length(PMat)]
+  do
+    for iCol in [1..Length(PMat)]
+    do
+      if iCol<iLin then
+        GramMat[iCol][iLin]:=PMat[iLin][iCol];
+      else
+        GramMat[iCol][iLin]:=PMat[iCol][iLin];
+      fi;
+    od;
+  od;
+  return GramMat;
+else
+  return PMat;
+fi;
+

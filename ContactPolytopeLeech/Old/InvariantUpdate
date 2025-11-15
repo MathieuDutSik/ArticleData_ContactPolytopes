@@ -1,0 +1,66 @@
+GramMat:=ReadAsFunction("GramMat")();
+n:=Length(GramMat);
+
+SHV:=ReadAsFunction("LeechNeigh")();
+
+
+MyFuncInvariant:=function(eSet)
+  local nbV, RetS, GetListDist, TheDistMat, i, j, eDiff, TheDist, ListDistInvariant;
+  nbV:=Length(eSet);
+  if nbV>55 then
+    RetS:=2;
+  else
+    if nbV>30 then
+      RetS:=3;
+    else
+      RetS:=4;
+    fi;
+  fi;
+  GetListDist:=function(SelectSet)
+    local ListDist, TheSiz, i, j;
+    ListDist:=[];
+    TheSiz:=Length(SelectSet);
+    for i in [1..TheSiz-1]
+    do
+      for j in [i+1..TheSiz]
+      do
+        Add(ListDist, SHV[SelectSet[i]]*GramMat*SHV[SelectSet[j]]);
+      od;
+    od;
+    return Collected(ListDist);
+  end;
+  TheDistMat:=NullMat(nbV, nbV);
+  for i in [1..nbV-1]
+  do
+    for j in [i+1..nbV]
+    do
+      eDiff:=SHV[eSet[i]]-SHV[eSet[j]];
+      TheDist:=eDiff*GramMat*eDiff;
+      TheDistMat[i][j]:=TheDist;
+      TheDistMat[j][i]:=TheDist;
+    od;
+  od;
+  ListDistInvariant:=List(Combinations(eSet, RetS), GetListDist);
+  return rec(OrdGrp:=Order(AutomorphismGroupEdgeColoredGraph(TheDistMat)), DistInvariant:=Collected(ListDistInvariant));
+end;
+
+
+
+ListInvariant:=[];
+for i in [1..40]
+do
+  Print("Orbit i=", i, "\n");
+  FileOrbit:=Concatenation("./TheWork/PathSAVE/Orbit", String(i), "_1");
+  U:=ReadAsFunction(FileOrbit)();
+  TheInv:=MyFuncInvariant(U.Inc);
+  U.TheInv:=TheInv;
+  Add(ListInvariant, TheInv);
+  SaveDataToFile(FileOrbit, U);
+
+  FileOrbit:=Concatenation("./TheWork/PathSAVE/Orbit", String(i), "_2");
+  U:=ReadAsFunction(FileOrbit)();
+  U.TheInv:=MyFuncInvariant(U.Inc);
+  SaveDataToFile(FileOrbit, U);
+od;
+nbInvariant:=Length(Set(ListInvariant));
+Print("nb Invariant=", nbInv, "\n");
